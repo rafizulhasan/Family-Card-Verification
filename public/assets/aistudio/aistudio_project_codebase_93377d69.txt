@@ -1,0 +1,832 @@
+================================================================================
+PROJECT: Family Card Verifier (পরিবার কার্ড আবেদনপত্র যাচাইকারী)
+PLATFORM: Android (Kotlin, Jetpack Compose, Material 3, Offline Tesseract OCR, PDFBox)
+VERSION / CONFIG: AGP 9.5.1, Kotlin 2.2.10, CompileSDK 36, TargetSDK 36
+================================================================================
+
+PROJECT FILE TREE:
+--------------------------------------------------------------------------------
+- README.md
+- build.gradle.kts
+- settings.gradle.kts
+- gradle.properties
+- gradle/libs.versions.toml
+- app/build.gradle.kts
+- app/proguard-rules.pro
+- app/src/main/AndroidManifest.xml
+- app/src/main/res/values/colors.xml
+- app/src/main/res/values/strings.xml
+- app/src/main/res/values/themes.xml
+- app/src/main/res/xml/backup_rules.xml
+- app/src/main/res/xml/data_extraction_rules.xml
+- app/src/main/java/com/example/MainActivity.kt
+- app/src/main/java/com/example/data/BengaliPdfUnicodeDecoder.kt
+- app/src/main/java/com/example/data/FamilyCardVerificationPipeline.kt
+- app/src/main/java/com/example/data/OcrFamilyCardParser.kt
+- app/src/main/java/com/example/data/OfflineFamilyCardExtractor.kt
+- app/src/main/java/com/example/data/OfflineTesseractOcrEngine.kt
+- app/src/main/java/com/example/data/PdfRendererHelper.kt
+- app/src/main/java/com/example/domain/FamilyCardValidator.kt
+- app/src/main/java/com/example/model/FamilyCardModels.kt
+- app/src/main/java/com/example/ui/VerifierScreen.kt
+- app/src/main/java/com/example/ui/VerifierViewModel.kt
+- app/src/main/java/com/example/ui/components/CriteriaCards.kt
+- app/src/main/java/com/example/ui/components/ExtractedDataAndJsonViews.kt
+- app/src/main/java/com/example/ui/components/QueueComponents.kt
+- app/src/main/java/com/example/ui/theme/Color.kt
+- app/src/main/java/com/example/ui/theme/Theme.kt
+- app/src/main/java/com/example/ui/theme/Type.kt
+- app/src/test/java/com/example/ExampleRobolectricTest.kt
+- app/src/test/java/com/example/ExampleUnitTest.kt
+- app/src/androidTest/java/com/example/ExampleInstrumentedTest.kt
+--------------------------------------------------------------------------------
+
+
+================================================================================
+FILE: README.md
+================================================================================
+# Family Card Verifier (পরিবার কার্ড আবেদনপত্র যাচাইকারী)
+
+গণপ্রজাতন্ত্রী বাংলাদেশ সরকারের **সমাজসেবা অধিদফতরের (DSS)** পরিবার কার্ড আবেদনপত্র (PDF) থেকে স্বয়ংক্রিয়ভাবে বাংলা ও ইংরেজি তথ্য এক্সট্রাকশন, স্ট্রাকচার্ড JSON আউটপুট এবং ৫টি নির্ধারিত শর্তে ক্রস-ফিল্ড যাচাইকরণ করার **১০০% অফলাইন** Android অ্যাপ।
+
+> এই অ্যাপটি সম্পূর্ণ ডিভাইসের ভেতরেই (On-device) কাজ করে — কোনো API Key, ক্লাউড সার্ভার বা ইন্টারনেট সংযোগের প্রয়োজন নেই।
+
+## মূল সুবিধাসমূহ
+- **২-স্তরের অফলাইন পিডিএফ পার্সার:**
+  1. ডিজিটাল পিডিএফ থেকে সরাসরি এমবেডেড বাংলা টেক্সট স্ট্রিম (mPDF/Kalpurush PUA ও PDFBox) ডিকোড ও টেবিল এক্সট্রাকশন।
+  2. স্ক্যানকৃত বা ছবির পিডিএফ হলে স্বয়ংক্রিয়ভাবে ২.৫x স্কেলে রেন্ডার করে বিল্ট-ইন **Tesseract (`ben+eng`)** অফলাইন OCR চালানো।
+- **মাল্টি-পিডিএফ সিকোয়েন্সিয়াল কিউ:** একসাথে একাধিক পিডিএফ নির্বাচন করে ধারাবাহিকভাবে যাচাই ও ফিল্টারিং।
+- **৫টি ক্রাইটেরিয়া যাচাই:** ওসিআর/JSON পূর্ণতা, বৈবাহিক অবস্থা (ব্যক্তিগত বনাম সদস্য ১), প্রবাসী সদস্য বনাম জীবিকার পেশা (`অন্যান্য`), টয়লেটের ধরন (`পিট/গর্ত` পরীক্ষা) এবং ৬টি নির্ধারিত পরিসম্পদ পরীক্ষা।
+
+---
+
+## লোকালি বিল্ড ও রান করার নিয়ম (Local Build Guide)
+
+### পূর্বশর্ত (Prerequisites)
+1. **[Android Studio](https://developer.android.com/studio)** (সর্বশেষ সংস্করণ, যার সাথে JDK 21 বান্ডেল থাকে)
+2. Android SDK Manager থেকে **Android 16 (API 36.1)** SDK Platform ও Build-Tools ইন্সটল থাকতে হবে।
+
+### পদ্ধতি ১: Android Studio ব্যবহার করে (সবচেয়ে সহজ)
+1. Android Studio ওপেন করে **Open** বাটনে ক্লিক করুন এবং এই প্রজেক্ট ফোল্ডারটি (`d:\FC`) সিলেক্ট করুন।
+2. Gradle Sync সম্পন্ন হওয়া পর্যন্ত অপেক্ষা করুন (প্রথমবার Gradle `9.3.1` ও ডিপেন্ডেন্সি ডাউনলোড হতে ইন্টারনেট লাগবে; বিল্ড হওয়ার পর অ্যাপ চালাতে ইন্টারনেট লাগবে না)।
+3. এমুলেটর বা ফোনে সরাসরি চালাতে উপরের **Run (▶)** বাটনে ক্লিক করুন।
+4. আলাদাভাবে ইন্সটলযোগ্য ডিবাগ APK তৈরি করতে মেনু থেকে **Build > Build Bundle(s) / APK(s) > Build APK(s)** সিলেক্ট করুন। তৈরি হওয়া APK পাওয়া যাবে:
+   `app/build/outputs/apk/debug/app-debug.apk`
+
+### পদ্ধতি ২: কমান্ড লাইন / টার্মিনাল ব্যবহার করে
+যদি আপনার পিসিতে **JDK 17 বা JDK 21** (`JAVA_HOME`) এবং **Android SDK** (`ANDROID_HOME` অথবা `local.properties`-এ `sdk.dir=...`) সেট করা থাকে, তবে পাওয়ারশেল/টার্মিনালে চালান:
+
+```powershell
+# ডিবাগ APK তৈরি করতে:
+.\gradlew.bat assembleDebug
+
+# ইউনিট টেস্ট চালাতে:
+.\gradlew.bat testDebugUnitTest
+```
+ডিবাগ APK তৈরি হবে `app\build\outputs\apk\debug\app-debug.apk` পাথে।
+
+
+================================================================================
+FILE: build.gradle.kts
+================================================================================
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+plugins {
+  alias(libs.plugins.android.application) apply false
+  alias(libs.plugins.kotlin.compose) apply false
+}
+
+
+================================================================================
+FILE: settings.gradle.kts
+================================================================================
+pluginManagement {
+  repositories {
+    google {
+      content {
+        includeGroupByRegex("com\\.android.*")
+        includeGroupByRegex("com\\.google.*")
+        includeGroupByRegex("androidx.*")
+      }
+    }
+    mavenCentral()
+    gradlePluginPortal()
+  }
+}
+
+plugins { id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0" }
+
+dependencyResolutionManagement {
+  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+  repositories {
+    google()
+    mavenCentral()
+    maven { url = uri("https://jitpack.io") }
+  }
+}
+
+rootProject.name = "Family Card Verifier"
+
+include(":app")
+
+
+================================================================================
+FILE: gradle.properties
+================================================================================
+# Project-wide Gradle settings.
+org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
+org.gradle.parallel=true
+org.gradle.caching=true
+org.gradle.configuration-cache=true
+kotlin.code.style=official
+android.nonTransitiveRClass=true
+
+# Enabled parallel sync for Gradle 9.4+
+org.gradle.tooling.parallel=true
+
+
+================================================================================
+FILE: gradle/libs.versions.toml
+================================================================================
+[versions]
+agp = "9.5.1"
+kotlin = "2.2.10"
+coreKtx = "1.18.0"
+lifecycleRuntimeKtx = "2.8.7"
+lifecycleViewmodelCompose = "2.8.7"
+lifecycleRuntimeCompose = "2.8.7"
+activityCompose = "1.10.1"
+composeBom = "2024.09.00"
+kotlinxCoroutinesAndroid = "1.10.2"
+kotlinxCoroutinesCore = "1.10.2"
+kotlinxCoroutinesTest = "1.10.2"
+pdfboxAndroid = "2.0.27.0"
+tesseract4android = "4.9.0"
+junit = "4.13.2"
+junitVersion = "1.3.0"
+espressoCore = "3.7.0"
+core = "1.6.1"
+runner = "1.6.2"
+robolectric = "4.16.1"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeCompose" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core" }
+androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
+pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfboxAndroid" }
+tesseract4android = { group = "cz.adaptech.tesseract4android", name = "tesseract4android", version.ref = "tesseract4android" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+androidx-core = { group = "androidx.test", name = "core", version.ref = "core" }
+androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runner" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+
+
+================================================================================
+FILE: app/build.gradle.kts
+================================================================================
+plugins {
+  alias(libs.plugins.android.application)
+  alias(libs.plugins.kotlin.compose)
+}
+
+android {
+  namespace = "com.example"
+  compileSdk = 36
+
+  defaultConfig {
+    applicationId = "com.aistudio.familycardverifier.qrxmva"
+    minSdk = 24
+    targetSdk = 36
+    versionCode = 1
+    versionName = "1.0"
+
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  val releaseKeystoreFile = file(System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks")
+  val hasReleaseSigning = releaseKeystoreFile.exists() &&
+    !System.getenv("STORE_PASSWORD").isNullOrBlank() &&
+    !System.getenv("KEY_PASSWORD").isNullOrBlank()
+
+  if (hasReleaseSigning) {
+    signingConfigs {
+      create("release") {
+        storeFile = releaseKeystoreFile
+        storePassword = System.getenv("STORE_PASSWORD")
+        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
+        keyPassword = System.getenv("KEY_PASSWORD")
+      }
+    }
+  }
+
+  buildTypes {
+    release {
+      isMinifyEnabled = true
+      isShrinkResources = true
+      ndk {
+        abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+      }
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      if (hasReleaseSigning) {
+        signingConfig = signingConfigs.getByName("release")
+      }
+    }
+    debug {
+      // Uses Android's default local debug keystore (~/.android/debug.keystore) automatically
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+  }
+
+  buildFeatures {
+    compose = true
+    buildConfig = true
+  }
+
+  packaging {
+    jniLibs {
+      useLegacyPackaging = true
+    }
+    resources {
+      excludes += setOf(
+        "/org/bouncycastle/pqc/**",
+        "/META-INF/{AL2.0,LGPL2.1}",
+        "/META-INF/DEPENDENCIES",
+        "/META-INF/LICENSE*",
+        "/META-INF/NOTICE*",
+        "DebugProbesKt.bin"
+      )
+    }
+  }
+
+  testOptions {
+    unitTests {
+      isIncludeAndroidResources = true
+    }
+  }
+
+  dependenciesInfo {
+    includeInApk = false
+    includeInBundle = true
+  }
+}
+
+dependencies {
+  implementation(platform(libs.androidx.compose.bom))
+  implementation(libs.androidx.activity.compose)
+  implementation(libs.androidx.compose.material.icons.core)
+  implementation(libs.androidx.compose.material.icons.extended)
+  implementation(libs.androidx.compose.material3)
+  implementation(libs.androidx.compose.ui)
+  implementation(libs.androidx.compose.ui.graphics)
+  implementation(libs.androidx.compose.ui.tooling.preview)
+  implementation(libs.androidx.core.ktx)
+  implementation(libs.androidx.lifecycle.runtime.compose)
+  implementation(libs.androidx.lifecycle.runtime.ktx)
+  implementation(libs.androidx.lifecycle.viewmodel.compose)
+  implementation(libs.kotlinx.coroutines.android)
+  implementation(libs.kotlinx.coroutines.core)
+  implementation(libs.pdfbox.android)
+  implementation(libs.tesseract4android)
+
+  testImplementation(libs.androidx.compose.ui.test.junit4)
+  testImplementation(libs.androidx.core)
+  testImplementation(libs.androidx.junit)
+  testImplementation(libs.junit)
+  testImplementation(libs.kotlinx.coroutines.test)
+  testImplementation(libs.robolectric)
+
+  androidTestImplementation(platform(libs.androidx.compose.bom))
+  androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+  androidTestImplementation(libs.androidx.espresso.core)
+  androidTestImplementation(libs.androidx.junit)
+  androidTestImplementation(libs.androidx.runner)
+
+  debugImplementation(libs.androidx.compose.ui.test.manifest)
+  debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+
+================================================================================
+FILE: app/proguard-rules.pro
+================================================================================
+# Add project specific ProGuard rules here.
+
+# Keep JNI bridge classes, native pointer fields, and C++ callbacks for Tesseract & Leptonica
+-keep class com.googlecode.tesseract.android.** { *; }
+-keep class com.googlecode.leptonica.android.** { *; }
+
+# Keep PDFBox-Android reflection-instantiated security handlers & silence optional desktop/crypto warnings
+-keep class * extends com.tom_roush.pdfbox.pdmodel.encryption.SecurityHandler {
+    public <init>(...);
+}
+-dontwarn org.bouncycastle.**
+-dontwarn com.gemalto.jp2.**
+-dontwarn java.awt.**
+-dontwarn javax.imageio.**
+
+
+================================================================================
+FILE: app/src/main/AndroidManifest.xml
+================================================================================
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyApplication">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.MyApplication">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
+
+
+================================================================================
+FILE: app/src/main/res/values/colors.xml
+================================================================================
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
+
+
+================================================================================
+FILE: app/src/main/res/values/strings.xml
+================================================================================
+<resources>
+    <string name="app_name">Family Card Verifier</string>
+    <string name="header_ministry">গণপ্রজাতন্ত্রী বাংলাদেশ সরকার • সমাজসেবা অধিদফতর</string>
+    <string name="header_title">পরিবার কার্ড আবেদনপত্র যাচাইকারী</string>
+    <string name="header_subtitle">একাধিক পিডিএফ সিকোয়েন্সিয়াল কিউ যাচাইকরণ সিস্টেম</string>
+    <string name="btn_pick_multiple_pdfs">পিডিএফ ফাইল নির্বাচন করুন (এক বা একাধিক)</string>
+    <string name="btn_add_more_pdfs">আরও পিডিএফ কিউতে যুক্ত করুন</string>
+    <string name="btn_reverify">পুনরায় চেষ্টা</string>
+    <string name="btn_copy_json">JSON কপি করুন</string>
+    <string name="btn_share_report">রিপোর্ট শেয়ার</string>
+    <string name="btn_view_full_report">বিস্তারিত রিপোর্ট দেখুন</string>
+    <string name="btn_back_to_queue">কিউ তালিকায় ফিরুন</string>
+    <string name="btn_clear_queue">সব মুছুন</string>
+    <string name="btn_retry_all_failed">ব্যর্থ ফাইল পুনরায় যাচাই</string>
+    <string name="empty_queue_title">কোনো পিডিএফ কিউতে নেই</string>
+    <string name="empty_queue_button">একাধিক পিডিএফ আপলোড করুন</string>
+    <string name="queue_status_pending">কিউতে অপেক্ষমাণ</string>
+    <string name="queue_status_processing">যাচাই চলছে…</string>
+    <string name="queue_status_completed">সম্পন্ন</string>
+    <string name="queue_status_failed">ব্যর্থ</string>
+    <string name="tab_warnings">যাচাইকরণ ও সতর্কবার্তা</string>
+    <string name="tab_extracted_data">আবেদনকারী ও সদস্য তথ্য</string>
+    <string name="tab_json">JSON আউটপুট</string>
+    <string name="tab_pdf_pages">পিডিএফ প্রিভিউ</string>
+    <string name="loading_rendering_pdf">পিডিএফ পৃষ্ঠা রেন্ডার হচ্ছে…</string>
+    <string name="loading_offline_extract">বাংলা টেক্সট এক্সট্রাকশন ও ক্রাইটেরিয়া যাচাই চলছে…</string>
+    <string name="loading_tesseract_ocr_fallback">২.৫x স্কেলে Tesseract (ben+eng) OCR চলছে…</string>
+    <string name="status_warning_badge">অসঙ্গতির সতর্কবার্তা</string>
+    <string name="status_pass_badge">সামঞ্জস্যপূর্ণ</string>
+    <string name="copied_json_toast">JSON ক্লিপবোর্ডে কপি করা হয়েছে</string>
+    <string name="cd_upload_pdf">পিডিএফ ফাইল আপলোড করুন</string>
+    <string name="cd_copy_json">JSON টেক্সট কপি করুন</string>
+    <string name="cd_share_report">যাচাইকরণ রিপোর্ট শেয়ার করুন</string>
+    <string name="cd_pdf_page">পিডিএফ পৃষ্ঠার প্রিভিউ</string>
+    <string name="cd_remove_queue_item">কিউ থেকে সরান</string>
+    <string name="cd_prev_pdf">পূর্ববর্তী পিডিএফ</string>
+    <string name="cd_next_pdf">পরবর্তী পিডিএফ</string>
+</resources>
+
+
+================================================================================
+FILE: app/src/main/res/values/themes.xml
+================================================================================
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.NoActionBar" />
+</resources>
+
+
+================================================================================
+FILE: app/src/main/res/xml/backup_rules.xml
+================================================================================
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+</full-backup-content>
+
+
+================================================================================
+FILE: app/src/main/res/xml/data_extraction_rules.xml
+================================================================================
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+    </cloud-backup>
+</data-extraction-rules>
+
+
+================================================================================
+FILE: app/src/main/java/com/example/MainActivity.kt
+================================================================================
+package com.example
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import com.example.ui.VerifierScreen
+import com.example.ui.theme.FamilyCardVerifierTheme
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            FamilyCardVerifierTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    VerifierScreen()
+                }
+            }
+        }
+    }
+}
+
+
+================================================================================
+FILE: app/src/main/java/com/example/data/BengaliPdfUnicodeDecoder.kt
+================================================================================
+package com.example.data
+
+import java.text.Normalizer
+
+/**
+ * 100% Free & Offline Bengali Visual-to-Logical Unicode Reconstructor.
+ */
+object BengaliPdfUnicodeDecoder {
+
+    private val kalpurushPuaMap: Map<Int, String> = mapOf(
+        0xE002 to "্য", 0xE003 to "ক্ক", 0xE004 to "ক্ট", 0xE005 to "ক্ত", 0xE006 to "ক্ত্র",
+        0xE007 to "ক্ত্ব", 0xE008 to "ক্ন", 0xE009 to "ক্ম", 0xE00A to "ক্র", 0xE00B to "ক্ল",
+        0xE00C to "ক্ব", 0xE00D to "ক্ষ", 0xE00E to "ক্ষ্ণ", 0xE00F to "ক্ষ্ম", 0xE010 to "ক্ষ্র",
+        0xE011 to "ক্ষ্ব", 0xE012 to "ক্স", 0xE013 to "খ্র", 0xE014 to "খ্ব", 0xE015 to "গু",
+        0xE016 to "গ্গ", 0xE017 to "গ্দ", 0xE018 to "গ্ধ", 0xE019 to "গ্ধ্ব", 0xE01A to "গ্ধ্র",
+        0xE01B to "গ্ন", 0xE01C to "গ্ম", 0xE01D to "গ্র", 0xE01E to "গ্রু", 0xE01F to "গ্রূ",
+        0xE020 to "গ্ল", 0xE021 to "গ্ব", 0xE022 to "ঘ্ন", 0xE023 to "ঘ্র", 0xE024 to "ঘ্ব",
+        0xE025 to "ঙ্ক", 0xE026 to "ঙ্ক্র", 0xE027 to "ঙ্ক্ষ", 0xE028 to "ঙ্ক্ষ্র", 0xE029 to "ঙ্খ",
+        0xE02A to "ঙ্গ", 0xE02B to "ঙ্ঘ", 0xE02C to "ঙ্ঘ্র", 0xE02D to "ঙ্ম", 0xE02E to "ঙ্র",
+        0xE02F to "চ্চ", 0xE030 to "চ্ছ", 0xE031 to "চ্ছ্র", 0xE032 to "চ্ছ্ব", 0xE033 to "চ্ঞ",
+        0xE034 to "চ্ন", 0xE035 to "চ্র", 0xE036 to "চ্ব", 0xE037 to "ছ্র", 0xE038 to "ছ্ব",
+        0xE039 to "জ্জ", 0xE03A to "জ্জ্ব", 0xE03B to "জ্ঝ", 0xE03C to "জ্ঞ", 0xE03D to "জ্র",
+        0xE03E to "জ্ব", 0xE03F to "ঝ্র", 0xE040 to "ঞ্চ", 0xE041 to "ঞ্চ্ব", 0xE042 to "ঞ্ছ",
+        0xE043 to "ঞ্জ", 0xE044 to "ঞ্ঝ", 0xE045 to "ঞ্ধ", 0xE046 to "ট্ট", 0xE047 to "ট্ট্র",
+        0xE048 to "ট্ম", 0xE049 to "ট্র", 0xE04A to "ট্ব", 0xE04B to "ঠ্র", 0xE04C to "ড্গ",
+        0xE04D to "ড্ড", 0xE04E to "ড্ম", 0xE04F to "ড্র", 0xE050 to "ড্ব", 0xE051 to "ঢ্র",
+        0xE052 to "ণ্ট", 0xE053 to "ণ্ট্র", 0xE054 to "ণ্ঠ", 0xE055 to "ণ্ঠ্র", 0xE056 to "ণ্ড",
+        0xE057 to "ণ্ড্র", 0xE058 to "ণ্ঢ", 0xE059 to "ণ্ঢ্র", 0xE05A to "ণ্ণ", 0xE05B to "ণ্ম",
+        0xE05C to "ণ্র", 0xE05D to "ণ্ব", 0xE05E to "ত্ত", 0xE05F to "ত্ত্ব", 0xE060 to "ত্থ",
+        0xE061 to "ত্ন", 0xE062 to "ত্ম", 0xE063 to "ত্র", 0xE064 to "ত্রু", 0xE065 to "ত্রূ",
+        0xE066 to "ত্ল", 0xE067 to "ত্ব", 0xE068 to "থ্র", 0xE069 to "থ্রু", 0xE06A to "থ্রূ",
+        0xE06B to "থ্ব", 0xE06C to "দ্গ", 0xE06D to "দ্ঘ", 0xE06E to "দ্দ", 0xE06F to "দ্দ্র",
+        0xE070 to "দ্দ্ব", 0xE071 to "দ্ধ", 0xE072 to "দ্ধ্ব", 0xE073 to "দ্ন", 0xE074 to "দ্ভ",
+        0xE075 to "দ্ভ্র", 0xE076 to "দ্ম", 0xE077 to "দ্র", 0xE078 to "দ্রু", 0xE079 to "দ্রূ",
+        0xE07A to "দ্ব", 0xE07B to "ধ্ন", 0xE07C to "ধ্ম", 0xE07D to "ধ্র", 0xE07E to "ধ্রু",
+        0xE07F to "ধ্রূ", 0xE080 to "ধ্ব", 0xE081 to "ন্ট", 0xE082 to "ন্ট্র", 0xE083 to "ন্ঠ",
+        0xE084 to "ন্ড", 0xE085 to "ন্ড্র", 0xE087 to "ন্ত", 0xE088 to "ন্তু", 0xE089 to "ন্ত্র",
+        0xE08A to "ন্ত্ব", 0xE08B to "ন্থ", 0xE08C to "ন্থ্র", 0xE08D to "ন্দ", 0xE08E to "ন্দ্র",
+        0xE08F to "ন্দ্ব", 0xE090 to "ন্ধ", 0xE091 to "ন্ধ্ব", 0xE092 to "ন্ধ্র", 0xE093 to "ন্ন",
+        0xE094 to "ন্ম", 0xE095 to "ন্র", 0xE096 to "ন্ব", 0xE097 to "ন্স", 0xE098 to "প্ট",
+        0xE099 to "প্ত", 0xE09A to "প্তু", 0xE09B to "প্ত্র", 0xE09C to "প্ন", 0xE09D to "প্প",
+        0xE09E to "প্ম", 0xE09F to "প্র", 0xE0A0 to "প্রু", 0xE0A1 to "প্রূ", 0xE0A2 to "প্ল",
+        0xE0A3 to "প্স", 0xE0A4 to "ফ্ট", 0xE0A5 to "ফ্র", 0xE0A6 to "ফ্ল", 0xE0AE to "ব্ব",
+        0xE0B0 to "ব্র", 0xE0B1 to "ব্রু", 0xE0B2 to "ব্রূ", 0xE0B3 to "ব্ল", 0xE0B4 to "ভ্র",
+        0xE0B5 to "ভ্রু", 0xE0B6 to "ভ্রূ", 0xE0B7 to "ভ্ল", 0xE0B8 to "ম্ত", 0xE0B9 to "ম্দ",
+        0xE0BA to "ম্ন", 0xE0BB to "ম্প", 0xE0BC to "ম্প্র", 0xE0BD to "ম্ফ", 0xE0BE to "ম্ফ্র",
+        0xE0BF to "ম্ব", 0xE0C0 to "ম্ভ", 0xE0C1 to "ম্ভ্র", 0xE0C2 to "ম্ম", 0xE0C3 to "ম্র",
+        0xE0C4 to "ম্ল", 0xE0C5 to "য্র", 0xE0C6 to "রু", 0xE0C7 to "রূ", 0xE0C8 to "ল্ক",
+        0xE0C9 to "ল্গ", 0xE0CA to "ল্গু", 0xE0CB to "ল্ঘ", 0xE0CC to "ল্ট", 0xE0CD to "ল্ট্র",
+        0xE0CE to "ল্ড", 0xE0CF to "ল্ড্র", 0xE0D0 to "ল্ঢ", 0xE0D1 to "ল্দ", 0xE0D2 to "ল্প",
+        0xE0D3 to "ল্ফ", 0xE0D4 to "ল্ব", 0xE0D5 to "ল্ম", 0xE0D6 to "ল্র", 0xE0D7 to "ল্ল",
+        0xE0D8 to "শু", 0xE0D9 to "শ্চ", 0xE0DA to "শ্ছ", 0xE0DB to "শ্ত", 0xE0DC to "শ্ন",
+        0xE0DE to "শ্ম", 0xE0DE to "শ্ব", 0xE0DF to "শ্র", 0xE0E0 to "শ্রী", 0xE0E1 to "শ্রু",
+        0xE0E2 to "শ্রূ", 0xE0E3 to "শ্ল", 0xE0E4 to "ষ্ক", 0xE0E5 to "ষ্ক্র", 0xE0E6 to "ষ্ট",
+        0xE0E7 to "ষ্ট্র", 0xE0E8 to "ষ্ঠ", 0xE0E9 to "ষ্ণ", 0xE0EA to "ষ্প", 0xE0EC to "ষ্প্র",
+        0xE0EC to "ষ্ফ", 0xE0ED to "ষ্র", 0xE0EE to "ষ্ব", 0xE0EF to "ষ্ম", 0xE0F0 to "স্ক",
+        0xE0F1 to "স্ক্র", 0xE0F3 to "স্খ", 0xE0F4 to "স্ট", 0xE0F5 to "স্ট্র", 0xE0F7 to "স্ত",
+        0xE0F8 to "স্তু", 0xE0F9 to "স্ত্র", 0xE0FA to "স্ত্ব", 0xE0FB to "স্থ", 0xE0FC to "স্ন",
+        0xE0FD to "স্প", 0xE0FE to "স্প্র", 0xE100 to "স্প্ল", 0xE101 to "স্ফ", 0xE102 to "স্ব",
+        0xE103 to "স্ম", 0xE104 to "স্র", 0xE105 to "স্রু", 0xE106 to "স্রূ", 0xE107 to "স্ল",
+        0xE108 to "হু", 0xE109 to "হৃ", 0xE10A to "হ্ণ", 0xE10B to "হ্ন", 0xE10C to "হ্ব",
+        0xE10D to "হ্ম", 0xE10E to "হ্র", 0xE10F to "হ্ল", 0xE110 to "ড়্গ", 0xE111 to "ড়্র",
+        0xE112 to "ঢ়্র", 0xE113 to "য়্র", 0xE114 to "রু", 0xE115 to "রূ", 0xE116 to "রু",
+        0xE117 to "রূ", 0xE118 to "র্র", 0xE11A to "ঁী", 0xE11B to "ঁৗ", 0xE11C to "ে",
+        0xE11D to "ৈ", 0xE121 to "॥", 0xE122 to "ক্", 0xE123 to "খ্", 0xE124 to "গ্",
+        0xE125 to "ঘ্", 0xE126 to "ঙ্", 0xE127 to "চ্", 0xE128 to "ছ্", 0xE129 to "জ্",
+        0xE12A to "ঝ্", 0xE12B to "ঞ্", 0xE12C to "ট্", 0xE12D to "ঠ্", 0xE12E to "ড্",
+        0xE12F to "ঢ্", 0xE130 to "ণ্", 0xE132 to "থ্", 0xE133 to "দ্", 0xE134 to "ধ্",
+        0xE135 to "ন্", 0xE136 to "প্", 0xE137 to "ফ্", 0xE139 to "ভ্", 0xE13A to "ম্",
+        0xE13B to "য্", 0xE13D to "ল্", 0xE13E to "ব্", 0xE13F to "শ্", 0xE140 to "ষ্",
+        0xE141 to "স্", 0xE142 to "হ্", 0xE143 to "ড়্", 0xE144 to "ঢ়্", 0xE145 to "য়্",
+        0xE147 to "র্", 0xE185 to "।", 0xE186 to "ু", 0xE187 to "ূ", 0xE188 to "ক",
+        0xE189 to "খ", 0xE18A to "গ", 0xE18B to "ঘ", 0xE18C to "ঙ", 0xE18D to "চ",
+        0xE18E to "ছ", 0xE18F to "জ", 0xE190 to "ঝ", 0xE191 to "ঞ", 0xE192 to "ট",
+        0xE193 to "ঠ", 0xE194 to "ড", 0xE195 to "ঢ", 0xE196 to "ণ", 0xE197 to "ত",
+        0xE198 to "থ", 0xE199 to "দ", 0xE19A to "ধ", 0xE19B to "ন", 0xE19C to "প",
+        0xE19D to "ফ", 0xE19E to "ব", 0xE19F to "ভ", 0xE1A0 to "ম", 0xE1A1 to "য",
+        0xE1A2 to "র", 0xE1A3 to "ল", 0xE1A4 to "শ", 0xE1A5 to "ষ", 0xE1A6 to "স",
+        0xE1A7 to "হ", 0xE1A8 to "ড়", 0xE1A9 to "ঢ়", 0xE1AA to "য়", 0xE1AB to "র",
+        0xE1AC to "র", 0xE1AD to "ক্ষ", 0xE1AF to "ক্ত্র", 0xE1B3 to "ম্ব্র", 0xE1B4 to "ণ্ন"
+    )
+
+    private val preBaseVowels = setOf('ি', 'ে', 'ৈ')
+    private val postBaseVowels = setOf('া', 'ী', 'ু', 'ূ', 'ৃ', 'ো', 'ৌ', 'ৗ', 'ঁ', 'ং', 'ঃ')
+
+    private fun isBengaliConsonant(ch: Char): Boolean {
+        val code = ch.code
+        return (code in 0x0995..0x09B9) ||
+            ch == 'ড়' || ch == 'ঢ়' || ch == 'য়' ||
+            ch == 'ৎ' || ch == '\u09DC' || ch == '\u09DD' || ch == '\u09DF'
+    }
+
+    fun decodeVisualBengali(rawVisual: String): String {
+        if (rawVisual.isEmpty()) return ""
+
+        val expanded = StringBuilder(rawVisual.length + 16)
+        for (ch in rawVisual) {
+            val mapped = kalpurushPuaMap[ch.code]
+            if (mapped != null) {
+                expanded.append(mapped)
+            } else {
+                expanded.append(ch)
+            }
+        }
+
+        val chars = expanded.toString().toMutableList()
+        var i = 0
+        while (i < chars.size) {
+            val ch = chars[i]
+            if (ch in preBaseVowels) {
+                var j = i + 1
+                if (j < chars.size && isBengaliConsonant(chars[j])) {
+                    j++
+                    while (j + 1 < chars.size && chars[j] == '্' && isBengaliConsonant(chars[j + 1])) {
+                        j += 2
+                    }
+                    for (k in i until j - 1) {
+                        chars[k] = chars[k + 1]
+                    }
+                    chars[j - 1] = ch
+                    i = j
+                    continue
+                }
+            }
+            i++
+        }
+
+        var idx = 0
+        while (idx < chars.size) {
+            val code = chars[idx].code
+            if (code == 0xE11E || code == 0xE11F) {
+                var k = idx - 1
+                while (k >= 0 && (chars[k] in preBaseVowels || chars[k] in postBaseVowels)) {
+                    k--
+                }
+                if (k >= 0 && isBengaliConsonant(chars[k])) {
+                    var startCluster = k
+                    while (
+                        startCluster - 2 >= 0 &&
+                        chars[startCluster - 1] == '্' &&
+                        isBengaliConsonant(chars[startCluster - 2])
+                    ) {
+                        startCluster -= 2
+                    }
+                    chars.removeAt(idx)
+                    chars.add(startCluster, '্')
+                    chars.add(startCluster, 'র')
+                    idx++
+                    continue
+                } else {
+                    chars[idx] = 'র'
+                    chars.add(idx + 1, '্')
+                    idx += 2
+                    continue
+                }
+            }
+            idx++
+        }
+
+        val logical = chars.joinToString("")
+            .replace("ো", "ো")
+            .replace("ৌ", "ৌ")
+            .replace("ু্য", "্যু")
+            .replace("ূ্য", "্যূ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+
+        return Normalizer.normalize(logical, Normalizer.Form.NFC)
+    }
+}
+
+
+================================================================================
+FILE: app/src/main/java/com/example/data/FamilyCardVerificationPipeline.kt
+================================================================================
+package com.example.data
+
+import android.content.Context
+import com.example.model.ExtractedFamilyCardData
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
+import com.tom_roush.pdfbox.text.TextPosition
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+data class PipelineExtractionOutcome(
+    val extractedData: ExtractedFamilyCardData,
+    val engineUsedLabel: String,
+    val usedOcrFallback: Boolean,
+    val extractedCharCount: Int
+)
+
+object FamilyCardVerificationPipeline {
+
+    suspend fun extractWithAutomaticOcrFallback(
+        context: Context,
+        pdfBytes: ByteArray,
+        onStartingOcrFallback: (totalPages: Int) -> Unit = {},
+        onOcrPageProgress: (currentPage: Int, totalPages: Int) -> Unit = { _, _ -> }
+    ): PipelineExtractionOutcome = withContext(Dispatchers.Default) {
+        val directPositioned = try {
+            OfflineFamilyCardExtractor.extractPositionedTextFromPdf(pdfBytes)
+        } catch (_: Exception) {
+            emptyList()
+        }
+        val directChars = directPositioned.sumOf { item -> item.text.count { !it.isWhitespace() } }
+        if (directChars > 0) {
+            val parsedDirect = OfflineFamilyCardExtractor.parseFromPositionedItems(directPositioned)
+            if (hasMeaningfulFormFields(parsedDirect) || directChars >= 120) {
+                return@withContext PipelineExtractionOutcome(
+                    extractedData = parsedDirect,
+                    engineUsedLabel = "ডিজিটাল পিডিএফ টেক্সট স্ট্রিম",
+                    usedOcrFallback = false,
+                    extractedCharCount = directChars
+                )
+            }
+        }
+
+        val pdfBoxAttempt = tryExtractViaPdfBox(context, pdfBytes)
+        if (pdfBoxAttempt != null && pdfBoxAttempt.extractedCharCount > 0) {
+            if (hasMeaningfulFormFields(pdfBoxAttempt.extractedData) || pdfBoxAttempt.extractedCharCount >= 120) {
+                return@withContext pdfBoxAttempt
+            }
+        }
+
+        val scaledPageBitmaps = PdfRendererHelper.renderAllPagesForOcr(
+            context = context,
+            pdfBytes = pdfBytes,
+            scale = PdfRendererHelper.OCR_RENDER_SCALE
+        )
+        onStartingOcrFallback(scaledPageBitmaps.size)
+
+        val ocrResult = OfflineTesseractOcrEngine.recognizePages(
+            context = context,
+            scaledPageBitmaps = scaledPageBitmaps,
+            recycleBitmapsAfterUse = true,
+            onPageProgress = onOcrPageProgress
+        )
+
+        if (ocrResult.nonWhitespaceCharCount == 0) {
+            throw IllegalArgumentException(
+                "পিডিএফ ফাইল থেকে এমবেডেড টেক্সট স্ট্রিম এবং ২.৫x স্কেল Tesseract (ben+eng) OCR—উভয় পদ্ধতিতেই কোনো পাঠযোগ্য টেক্সট পাওয়া যায়নি। অনুগ্রহ করে স্পষ্ট পিডিএফ ফাইল প্রদান করুন।"
+            )
+        }
+
+        val ocrExtractedData = OcrFamilyCardParser.parseFromOcrPages(ocrResult.pagesText)
+        PipelineExtractionOutcome(
+            extractedData = ocrExtractedData,
+            engineUsedLabel = "স্ক্যানকৃত পিডিএফ • Tesseract (ben+eng) ২.৫x OCR",
+            usedOcrFallback = true,
+            extractedCharCount = ocrResult.nonWhitespaceCharCount
+        )
+    }
+
+    private fun tryExtractViaPdfBox(
+        context: Context,
+        pdfBytes: ByteArray
+    ): PipelineExtractionOutcome? {
+        return try {
+            if (!PDFBoxResourceLoader.isReady()) {
+                PDFBoxResourceLoader.init(context.applicationContext)
+            }
+            PDDocument.load(pdfBytes).use { document ->
+                val positionedCollector = ArrayList<PdfPositionedText>()
+                val stripper = object : PDFTextStripper() {
+                    override fun writeString(text: String?, textPositions: MutableList<TextPosition>?) {
+                        if (!text.isNullOrBlank() && !textPositions.isNullOrEmpty()) {
+                            val first = textPositions.first()
+                            val pageHeight = currentPage?.mediaBox?.height ?: 842f
+                            val pdfX = first.xDirAdj
+                            val pdfY = pageHeight - first.yDirAdj
+                            val decoded = BengaliPdfUnicodeDecoder.decodeVisualBengali(text)
+                            if (decoded.isNotBlank()) {
+                                val isFooter = pdfY in 0.01f..16f && (
+                                    decoded.contains("প্রস্তুতির সময়") ||
+                                        decoded.contains("কপিরাইট")
+                                    )
+                                if (!isFooter) {
+                                    positionedCollector.add(
+                                        PdfPositionedText(
+                                            pageNumber = currentPageNo,
+                                            x = pdfX,
+                                            y = pdfY,
+                                            text = decoded
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                        super.writeString(text, textPositions)
+                    }
+                }
+                stripper.sortByPosition = true
+                val rawPlainText = BengaliPdfUnicodeDecoder.decodeVisualBengali(stripper.getText(document).orEmpty())
+                val nonWsChars = positionedCollector.sumOf { item -> item.text.count { !it.isWhitespace() } }
+                    .coerceAtLeast(rawPlainText.count { !it.isWhitespace() })
+
+                if (nonWsChars == 0) {
+                    return null
+                }
+
+                val coordParsed = OfflineFamilyCardExtractor.parseFromPositionedItems(positionedCollector)
+                val finalData = if (hasMeaningfulFormFields(coordParsed)) {
+                    coordParsed
+                } else {
+                    OcrFamilyCardParser.parseFromOcrText(rawPlainText)
+                }
+
+                PipelineExtractionOutcome(
+                    extractedData = finalData,
+                    engineUsedLabel = "ডিজিটাল পিডিএফ টেক্সট স্ট্রিম (PDFBox)",
+                    usedOcrFallback = false,
+                    extractedCharCount = nonWsChars
+                )
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun hasMeaningfulFormFields(data: ExtractedFamilyCardData): Boolean {
+        return data.applicant.nameBangla.isNotBlank() ||
+            data.applicant.nameEnglish.isNotBlank() ||
+            data.applicant.nid.isNotBlank() ||
+            data.familyMembers.isNotEmpty() ||
+            data.householdInfo.toiletType.isNotBlank() ||
+            data.householdInfo.ownedAssetsRaw.isNotBlank()
+    }
+}

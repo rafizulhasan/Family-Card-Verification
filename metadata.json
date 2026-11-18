@@ -1,0 +1,6 @@
+{
+  "name": "Family Card Verifier",
+  "description": "Offline DSS Family Card PDF application extractor and 5-criteria cross-field verifier for Bangladesh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
